@@ -52,7 +52,8 @@ def process_song_data(spark, input_data, output_data):
                     .orderBy(F.col("song_id"))
     
     # write songs table to parquet files partitioned by year and artist
-    songs_table.write.parguet(output_data + "song_table.parquet/")
+    songs_table.write.mode("overwrite")\
+                 .parquet(output_data + "song_table.parquet/")
 
     # extract columns to create artists table
     artists_table = df.select("artist_id", 
@@ -63,7 +64,8 @@ def process_song_data(spark, input_data, output_data):
                        .distinct().orderBy(F.col("artist_id"))
     
     # write artists table to parquet files
-    artists_table.write.parguet(output_data + "artist_table.parquet/")
+    artists_table.write.mode("overwrite")\
+                 .parquet(output_data + "artist_table.parquet/")
 
 
 def process_log_data(spark, input_data, output_data):
@@ -96,13 +98,16 @@ def process_log_data(spark, input_data, output_data):
     df = df.filter(F.col("page")=="NextSong")
 
     # extract columns for users table    
-    user_table = df.select("userId", "firstname", "lastname", 
+    user_table = df.select(F.col("userId").alias("user_id"), 
+                           F.col("firstname").alias("first_name"), 
+                           F.col("lastname").alias("last_name"), 
                            "gender", "level").distinct()\
                    .orderBy("userId")
     
     # write users table to parquet files
-    user_table.write.parquet(output_data + "user_table.parquet/")
-
+    user_table.write.mode("overwrite")\
+                 .parquet(output_data + "user_table.parquet/")
+    
     # create timestamp column from original timestamp column
     df = df.withColumn("timestamp", F.expr("cast(ts / 1000 as timestamp)"))
     
@@ -126,7 +131,8 @@ def process_log_data(spark, input_data, output_data):
                            """)
     
     # write time table to parquet files partitioned by year and month
-    time_table.write.parquet(output_data + "time_table.parquet/")
+    time_table.write.mode("overwrite")\
+                 .parquet(output_data + "time_table.parquet/")
 
     # read in song data to use for songplays table
     bucketname = input_data[6: ]
@@ -141,9 +147,8 @@ def process_log_data(spark, input_data, output_data):
             song_data.append("s3a://" + bucketname + "/" + k["Key"])
     
     # read song data file
-    df = spark.read.json(song_data)
-    song_df = 
-
+    song_df = spark.read.json(song_data)
+    
     # extract columns from joined song and log datasets to create songplays table 
     songplays_table = 
 
