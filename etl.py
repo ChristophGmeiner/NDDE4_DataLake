@@ -115,20 +115,14 @@ def process_log_data(spark, input_data, output_data):
     df = df.withColumn("datetime", F.expr("cast(timestamp as date)"))
     
     # extract columns to create time table
-    df.registerTempTable("dftab")
-    time_table = spark.sql("""
-                            SELECT DISTINCT
-                            timestamp AS start_time,
-                            HOUR(timestamp) AS hour,
-                            DAY(timestamp) AS day,
-                            WEEKOFYEAR(timestamp) as week,
-                            MONTH(timestamp) as month,
-                            YEAR(timestamp) as year,
-                            DAYOFWEEK(timestamp) as weekday
-                            FROM
-                            dftab
-                            ORDER BY 1
-                           """)
+    tdf = sdf.select(F.col("timestamp").alias("start_time"))\
+             .withColumn("hour", F.hour("start_time"))\
+             .withColumn("day", F.dayofmonth("start_time"))\
+             .withColumn("week", F.weekofyear("start_time"))\
+             .withColumn("month", F.month("start_time"))\
+             .withColumn("year", F.year("start_time"))\
+             .withColumn("weekday", F.dayofweek("start_time"))\
+             .orderBy("start_time")
     
     # write time table to parquet files partitioned by year and month
     time_table.write.mode("overwrite")\
