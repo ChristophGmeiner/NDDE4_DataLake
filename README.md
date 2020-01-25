@@ -19,3 +19,34 @@ Please be aware that this data is for demonstration purposes only and therefore 
 ## Description of the ETL Pipeline
 
 All confidential information needed for connecting to AWS is stored in a local file (not part of this repo), i.e. dl.cfg. See the scripts for details on that.
+
+The ETL process is done in a Apache Spark cluster using the pyspark package. Raw json data is stored in an AWS S3 bucket (owned by udacity). The json data is loaded into Spark dataframes, transformed to star-schema dataframes and afterwards written to parquet files in another AWS S3 bucket for further and later analysis.
+
+Please find the description of each tabke / dataframe object below:
+
+### songplays_table
+This object is the fact table. Since it would not make any sense to accept NULL values for either song or artist in this table (for analytical reasons), this table is pretty small. This is due to the raw data restrictions mentioned in the purpose section above. Details on that can also be seen in the DataChecks notebook.
+
+### user_table
+This table shows masterdata about users. 
+
+### songs_table
+This table shows masterdata about songs.
+
+### artists_table
+This table shows masterdata about artists. 
+
+### time_table
+This table shows time and date based masterdata for each timestamp a songplay took place. 
+
+
+## Scripts and files
+
+### etl.py
+Production-ready etl python script, which takes all the etl steps mentioned above.
+
+### etl,ipynb
+Explains the steps in etl.py
+
+### s3_inspect.ipynb
+Demo notebook for examining the contents of an AWS S3 bucket.
