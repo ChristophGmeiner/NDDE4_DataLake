@@ -37,11 +37,9 @@ def process_song_data(spark, input_data, output_data):
                     Please think about putting an "a" after s3, otherwise spark
                     won't recognize the S3 path
     '''
-    
-    # read song data file
+
     df = spark.read.json(input_data + "*/*/*/*.json")
 
-    # extract columns to create songs table
     songs_table = df.select("song_id", "title", "artist_id", "year", 
                               "duration").distinct()\
                     .orderBy(F.col("song_id"))
@@ -49,15 +47,13 @@ def process_song_data(spark, input_data, output_data):
     # write songs table to parquet files partitioned by year and artist
     songs_table.write.parquet(output_data + "song_table.parquet/")
 
-    # extract columns to create artists table
     artist_table = df.select("artist_id", 
                                F.col("artist_name").alias("name"),
                                F.col("artist_location").alias("location"),
                                F.col("artist_latitude").alias("latitude"),
                                F.col("artist_longitude").alias("longitude"))\
                        .distinct().orderBy(F.col("artist_id"))
-    
-    # write artists table to parquet files
+
     artist_table.write.parquet(output_data + "artist_table.parquet/")
 
 
@@ -72,11 +68,9 @@ def process_log_data(spark, input_data, output_data):
                     Please think about putting an "a" after s3, otherwise spark
                     won't recognize the S3 path
     '''
-            
-    # read log data file
+
     df = spark.read.json(input_data + "*/*/*.json")
     
-    # filter by actions for song plays
     df = df.filter(F.col("page")=="NextSong")
 
     # extract columns for users table    
@@ -101,27 +95,31 @@ def process_log_data(spark, input_data, output_data):
              .withColumn("weekday", F.dayofweek("start_time"))\
              .orderBy("start_time")
     
-    time_table.write.parquet(output_data + "time_table.parquet/")
+    time_table.write.partitionBy("year", "month")\
+              .parquet("s3a://christophndde4/time_table/")
 
     song_df = spark.read.format("json")\
                    .load("s3a://udacity-dend/song_data/*/*/*/*.json")
     
-    songplay_table = df.join(song_df, 
-                           (song_df.artist_name == df.artist) &
-                           (song_df.title == df.song),
+    songplay_df = sdf.join(songstage_df, 
+                           (songstage_df.artist_name == sdf.artist) &
+                           (songstage_df.title == sdf.song),
                            how="left")\
-                        .select(df["songplay_id"],
-                                df["timestamp"].alias("start_time"),
-                                df["userId"].alias("user_id"),
-                                df["level"],
-                                song_df["song_id"],
-                                song_df["artist_id"],
-                                df["sessionId"].alias("session_id"),
-                                song_df["artist_location"].alias("location"),
-                                df["userAgent"].alias("user_agent"))  
+                     .select(sdf["songplay_id"],
+                             sdf["timestamp"].alias("start_time"),
+                             sdf["userId"].alias("user_id"),
+                             sdf["level"],
+                             songstage_df["song_id"],
+                             songstage_df["artist_id"],
+                             sdf["sessionId"].alias("session_id"),
+                             songstage_df["artist_location"].alias("location"),
+                             sdf["userAgent"].alias("user_agent"))\
+                     .filter(songstage_df["song_id"].isNotNull())
 
     # write songplays table to parquet files partitioned by year and month
-    songplay_table.write.parquet("s3a://christophndde4/songplay_table/")
+    songplay_table.write.partitionBy(F.year("start_time"), 
+                                     F.month("start_time")\
+                         .parquet("s3a://christophndde4/songplay_table/")
 
 
 def main():

@@ -28,18 +28,19 @@ Please find the description of each tabke / dataframe object below:
 
 ### songplays_table
 This object is the fact table. Since it would not make any sense to accept NULL values for either song or artist in this table (for analytical reasons), this table is pretty small. This is due to the raw data restrictions mentioned in the purpose section above. Details on that can also be seen in the DataChecks notebook.
+This table is stored partioned by year and month.
 
 ### user_table
 This table shows masterdata about users. Basically the user_id shoud be the unique key in this dataframe, but since many users probablky start as free user and become paid users after that, the unique ID in the current setup has to be extended to the level field as well.
 
 ### songs_table
-This table shows masterdata about songs.
+This table shows masterdata about songs. This table is saved partioned by year and artist_id.
 
 ### artists_table
 This table shows masterdata about artists. 
 
 ### time_table
-This table shows time and date based masterdata for each timestamp a songplay took place. 
+This table shows time and date based masterdata for each timestamp a songplay took place. This table is stored partioned by year and month.
 
 
 ## Scripts and files
@@ -59,3 +60,4 @@ On another machines these step is not necessary. Running only the python script 
 
 ### Data_Checks.ipynb
 This notebook shows some data checks and some basic approaches for data analysis with the newly generated data. These checks are similar to the Check notebook, I created in the NDDE3 project (find link for that repo above). 
+Alternatively all these analysis could also be done with AWS Athena using an AWS GLue Crawler. Although this works not that good with partioned parquet files.
