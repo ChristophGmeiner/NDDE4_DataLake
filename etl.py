@@ -3,13 +3,16 @@ from datetime import datetime
 import os
 from pyspark.sql import SparkSession
 import pyspark.sql.functions as F
+from pyspark.sql.types import IntegerType, StringType, TimestampType
 import boto3
+import pandas as pd
+import gc
 
 config = configparser.ConfigParser()
 config.read('dl.cfg')
 
-os.environ['AWS_ACCESS_KEY_ID']=config['AWS_ACCESS_KEY_ID']
-os.environ['AWS_SECRET_ACCESS_KEY']=config['AWS_SECRET_ACCESS_KEY']
+os.environ['AWS_ACCESS_KEY_ID']=config['AWS']['AWS_ACCESS_KEY_ID']
+os.environ['AWS_SECRET_ACCESS_KEY']=config['AWS']['AWS_SECRET_ACCESS_KEY']
 
 
 def create_spark_session():
@@ -20,7 +23,7 @@ def create_spark_session():
     return spark
 
 
-def process_song_data(spark, input_data, output_data):
+def process_song_data(spark, input_data, output_data, s3):
     '''Function for loading songs and artist data
     Parameters:
         spark: SparkSession,
@@ -68,7 +71,7 @@ def process_song_data(spark, input_data, output_data):
                  .parquet(output_data + "artist_table.parquet/")
 
 
-def process_log_data(spark, input_data, output_data):
+def process_log_data(spark, input_data, output_data, s3):
     '''Function for loading log data
        Parameters:
         spark: SparkSession,
@@ -143,20 +146,39 @@ def process_log_data(spark, input_data, output_data):
     # read song data file
     song_df = spark.read.json(song_data)
     
-    # extract columns from joined song and log datasets to create songplays table 
-    songplays_table = 
+    songplay_df = sdf.join(songstage_df, 
+                           (songstage_df.artist_name == sdf.artist) &
+                           (songstage_df.title == sdf.song),
+                           how="left")\
+                     .select(sdf["songplay_id"],
+                             sdf["timestamp"].alias("start_time"),
+                             sdf["userId"].alias("user_id"),
+                             sdf["level"],
+                             songstage_df["song_id"],
+                             songstage_df["artist_id"],
+                             sdf["sessionId"].alias("session_id"),
+                             songstage_df["artist_location"].alias("location"),
+                             sdf["userAgent"].alias("user_agent"))  
 
     # write songplays table to parquet files partitioned by year and month
-    songplays_table
+    songplay_df.write.mode("overwrite").\
+        parquet("s3a://christophndde4/songplay_table/")
 
 
 def main():
     spark = create_spark_session()
+    spark.conf.set("spark.sql.broadcastTimeout",  900)
     input_data = "s3a://udacity-dend/"
     output_data = "s3a://christophndde4/"
     
-    process_song_data(spark, input_data, output_data)    
-    process_log_data(spark, input_data, output_data)
+    s3 = boto3.client("s3", region_name="us-west-2", 
+                  aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+                  aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'])
+    
+    
+    
+    process_song_data(spark, input_data, output_data, s3)    
+    process_log_data(spark, input_data, output_data, s3)
 
 
 if __name__ == "__main__":

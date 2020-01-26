@@ -6,7 +6,7 @@ Sparkify is a simulated (not-real) online music streaming service.
 
 This Git repository shows how to script an etl process for loading data from json raw data (stored in an AWS S3 bucket), for creating fact and dimension tables from these files by transforming them using Apache Spark and save them back to the S3 bucket as csv files Basically it is a little bit similar to the third NDDE project (see here: https://github.com/ChristophGmeiner/NDDE3_DataWarehouse_AWS)
 
-This is done using Python (specifically the pyspark package).
+This is done using Python (specifically the pyspark package). Data checks on boger datasets were processed on an AWS EMR cluster.
 
 ## Purpose of the Database sparkifydb
 
@@ -50,3 +50,10 @@ Explains the steps in etl.py
 
 ### s3_inspect.ipynb
 Demo notebook for examining the contents of an AWS S3 bucket.
+
+### RunScripts.sh
+Production ready bash script, which installs a necessary AWS SDK python package (which is apparently not installed by default on Udacity VM) first and then runs the etl.py script.
+On another machines these step is not necessary. Running only the python script is sufficient for this matter.
+
+### Data_Checks.ipynb
+This notebook shows some data checks and some basic approaches for data analysis with the newly generated data.
