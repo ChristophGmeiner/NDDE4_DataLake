@@ -14,6 +14,9 @@ config.read('dl.cfg')
 os.environ['AWS_ACCESS_KEY_ID']=config['AWS']['AWS_ACCESS_KEY_ID']
 os.environ['AWS_SECRET_ACCESS_KEY']=config['AWS']['AWS_SECRET_ACCESS_KEY']
 
+s3r = boto3.resource("s3")
+bucket = s3r.Bucket("christophndde4").objects.all().delete()
+
 
 def create_spark_session():
     spark = SparkSession \
@@ -23,7 +26,7 @@ def create_spark_session():
     return spark
 
 
-def process_song_data(spark, input_data, output_data, s3):
+def process_song_data(spark, input_data, output_data):
     '''Function for loading songs and artist data
     Parameters:
         spark: SparkSession,
@@ -35,19 +38,8 @@ def process_song_data(spark, input_data, output_data, s3):
                     won't recognize the S3 path
     '''
     
-    bucketname = input_data[6: ]
-    bucketname = bucketname[0:bucketname.find("/")]
-    
-    lcobj = list(s3.list_objects_v2(Bucket=bucketname, 
-                                Prefix="song_data/").values())
-    
-    song_data = []
-    for k in lcobj[2]:
-        if k["Key"].find(".json") > -1:
-            song_data.append("s3a://" + bucketname + "/" + k["Key"])
-    
     # read song data file
-    df = spark.read.json(song_data)
+    df = spark.read.json(input_data + "*/*/*/*.json")
 
     # extract columns to create songs table
     songs_table = df.select("song_id", "title", "artist_id", "year", 
@@ -55,11 +47,10 @@ def process_song_data(spark, input_data, output_data, s3):
                     .orderBy(F.col("song_id"))
     
     # write songs table to parquet files partitioned by year and artist
-    songs_table.write.mode("overwrite")\
-                 .parquet(output_data + "song_table.parquet/")
+    songs_table.write.parquet(output_data + "song_table.parquet/")
 
     # extract columns to create artists table
-    artists_table = df.select("artist_id", 
+    artist_table = df.select("artist_id", 
                                F.col("artist_name").alias("name"),
                                F.col("artist_location").alias("location"),
                                F.col("artist_latitude").alias("latitude"),
@@ -67,11 +58,10 @@ def process_song_data(spark, input_data, output_data, s3):
                        .distinct().orderBy(F.col("artist_id"))
     
     # write artists table to parquet files
-    artists_table.write.mode("overwrite")\
-                 .parquet(output_data + "artist_table.parquet/")
+    artist_table.write.parquet(output_data + "artist_table.parquet/")
 
 
-def process_log_data(spark, input_data, output_data, s3):
+def process_log_data(spark, input_data, output_data):
     '''Function for loading log data
        Parameters:
         spark: SparkSession,
@@ -82,20 +72,9 @@ def process_log_data(spark, input_data, output_data, s3):
                     Please think about putting an "a" after s3, otherwise spark
                     won't recognize the S3 path
     '''
-    
-    bucketname = input_data[6: ]
-    bucketname = bucketname[0:bucketname.find("/")]
-    
-    lcobj = list(s3.list_objects_v2(Bucket=bucketname, 
-                                Prefix="log_data/").values())
-    
-    log_data = []
-    for k in lcobj[2]:
-        if k["Key"].find(".json") > -1:
-            log_data.append("s3a://" + bucketname + "/" +k["Key"])
             
     # read log data file
-    df = spark.read.json(log_data)
+    df = spark.read.json(input_data + "*/*/*.json")
     
     # filter by actions for song plays
     df = df.filter(F.col("page")=="NextSong")
@@ -107,18 +86,13 @@ def process_log_data(spark, input_data, output_data, s3):
                            "gender", "level").distinct()\
                    .orderBy("userId")
     
-    # write users table to parquet files
-    user_table.write.mode("overwrite")\
-                 .parquet(output_data + "user_table.parquet/")
+    user_table.write.parquet(output_data + "user_table.parquet/")
     
-    # create timestamp column from original timestamp column
     df = df.withColumn("timestamp", F.expr("cast(ts / 1000 as timestamp)"))
     
-    # create datetime column from original timestamp column
     df = df.withColumn("datetime", F.expr("cast(timestamp as date)"))
     
-    # extract columns to create time table
-    tdf = sdf.select(F.col("timestamp").alias("start_time"))\
+    time_table = df.select(F.col("timestamp").alias("start_time"))\
              .withColumn("hour", F.hour("start_time"))\
              .withColumn("day", F.dayofmonth("start_time"))\
              .withColumn("week", F.weekofyear("start_time"))\
@@ -127,42 +101,27 @@ def process_log_data(spark, input_data, output_data, s3):
              .withColumn("weekday", F.dayofweek("start_time"))\
              .orderBy("start_time")
     
-    # write time table to parquet files partitioned by year and month
-    time_table.write.mode("overwrite")\
-                 .parquet(output_data + "time_table.parquet/")
+    time_table.write.parquet(output_data + "time_table.parquet/")
 
-    # read in song data to use for songplays table
-    bucketname = input_data[6: ]
-    bucketname = bucketname[0:bucketname.find("/")]
+    song_df = spark.read.format("json")\
+                   .load("s3a://udacity-dend/song_data/*/*/*/*.json")
     
-    lcobj = list(s3.list_objects_v2(Bucket=bucketname, 
-                                Prefix="song_data/").values())
-    
-    song_data = []
-    for k in lcobj[2]:
-        if k["Key"].find(".json") > -1:
-            song_data.append("s3a://" + bucketname + "/" + k["Key"])
-    
-    # read song data file
-    song_df = spark.read.json(song_data)
-    
-    songplay_df = sdf.join(songstage_df, 
-                           (songstage_df.artist_name == sdf.artist) &
-                           (songstage_df.title == sdf.song),
+    songplay_table = df.join(song_df, 
+                           (song_df.artist_name == df.artist) &
+                           (song_df.title == df.song),
                            how="left")\
-                     .select(sdf["songplay_id"],
-                             sdf["timestamp"].alias("start_time"),
-                             sdf["userId"].alias("user_id"),
-                             sdf["level"],
-                             songstage_df["song_id"],
-                             songstage_df["artist_id"],
-                             sdf["sessionId"].alias("session_id"),
-                             songstage_df["artist_location"].alias("location"),
-                             sdf["userAgent"].alias("user_agent"))  
+                        .select(df["songplay_id"],
+                                df["timestamp"].alias("start_time"),
+                                df["userId"].alias("user_id"),
+                                df["level"],
+                                song_df["song_id"],
+                                song_df["artist_id"],
+                                df["sessionId"].alias("session_id"),
+                                song_df["artist_location"].alias("location"),
+                                df["userAgent"].alias("user_agent"))  
 
     # write songplays table to parquet files partitioned by year and month
-    songplay_df.write.mode("overwrite").\
-        parquet("s3a://christophndde4/songplay_table/")
+    songplay_table.write.parquet("s3a://christophndde4/songplay_table/")
 
 
 def main():
@@ -171,14 +130,9 @@ def main():
     input_data = "s3a://udacity-dend/"
     output_data = "s3a://christophndde4/"
     
-    s3 = boto3.client("s3", region_name="us-west-2", 
-                  aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-                  aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'])
     
-    
-    
-    process_song_data(spark, input_data, output_data, s3)    
-    process_log_data(spark, input_data, output_data, s3)
+    process_song_data(spark, input_data, output_data)    
+    process_log_data(spark, input_data, output_data)
 
 
 if __name__ == "__main__":

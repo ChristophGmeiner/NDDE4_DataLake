@@ -22,13 +22,15 @@ All confidential information needed for connecting to AWS is stored in a local f
 
 The ETL process is done in a Apache Spark cluster using the pyspark package. Raw json data is stored in an AWS S3 bucket (owned by udacity). The json data is loaded into Spark dataframes, transformed to star-schema dataframes and afterwards written to parquet files in another AWS S3 bucket for further and later analysis.
 
+The data is the same as in my NDDE3 project. See details here: https://github.com/ChristophGmeiner/NDDE3_DataWarehouse_AWS
+
 Please find the description of each tabke / dataframe object below:
 
 ### songplays_table
 This object is the fact table. Since it would not make any sense to accept NULL values for either song or artist in this table (for analytical reasons), this table is pretty small. This is due to the raw data restrictions mentioned in the purpose section above. Details on that can also be seen in the DataChecks notebook.
 
 ### user_table
-This table shows masterdata about users. 
+This table shows masterdata about users. Basically the user_id shoud be the unique key in this dataframe, but since many users probablky start as free user and become paid users after that, the unique ID in the current setup has to be extended to the level field as well.
 
 ### songs_table
 This table shows masterdata about songs.
@@ -56,4 +58,4 @@ Production ready bash script, which installs a necessary AWS SDK python package 
 On another machines these step is not necessary. Running only the python script is sufficient for this matter.
 
 ### Data_Checks.ipynb
-This notebook shows some data checks and some basic approaches for data analysis with the newly generated data.
+This notebook shows some data checks and some basic approaches for data analysis with the newly generated data. These checks are similar to the Check notebook, I created in the NDDE3 project (find link for that repo above). 
