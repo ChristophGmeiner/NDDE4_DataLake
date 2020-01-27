@@ -45,7 +45,7 @@ def process_song_data(spark, input_data, output_data):
                               "duration").distinct()\
                     .orderBy(F.col("song_id"))
     
-    songs_table.write.partitionBy("year", "artist")\
+    songs_table.write.partitionBy("year", "artist_id")\
                .parquet(output_data + "song_table.parquet/")
 
     artist_table = df.select("artist_id", 
@@ -100,27 +100,28 @@ def process_log_data(spark, input_data, output_data):
     time_table.write.partitionBy("year", "month")\
               .parquet("s3a://christophndde4/time_table/")
 
-    song_df = spark.read.parquet(output_data + "song_table/")
+    songstage_df = spark.read.parquet(output_data + "song_table/")
     
-    songplay_df = sdf.join(songstage_df, 
-                           (songstage_df.artist_name == sdf.artist) &
-                           (songstage_df.title == sdf.song),
+    songplay_table = df.join(songstage_df, 
+                           (songstage_df.artist_name == df.artist) &
+                           (songstage_df.title == df.song),
                            how="left")\
-                     .select(sdf["songplay_id"],
-                             sdf["timestamp"].alias("start_time"),
-                             sdf["userId"].alias("user_id"),
-                             sdf["level"],
+                     .select(df["songplay_id"],
+                             df["timestamp"].alias("start_time"),
+                             df["userId"].alias("user_id"),
+                             df["level"],
                              songstage_df["song_id"],
                              songstage_df["artist_id"],
-                             sdf["sessionId"].alias("session_id"),
+                             df["sessionId"].alias("session_id"),
                              songstage_df["artist_location"].alias("location"),
-                             sdf["userAgent"].alias("user_agent"))\
-                     .filter(songstage_df["song_id"].isNotNull())
+                             df["userAgent"].alias("user_agent"))\
+                     .filter(songstage_df["song_id"].isNotNull())\
+                     .withColumn("year", F.year("start_time"))\
+                     .withColumn("month", F.month("start_time"))    
 
     
-    songplay_table.write.partitionBy(F.year("start_time"), 
-                                     F.month("start_time"))\
-                         .parquet("s3a://christophndde4/songplay_table/")
+    songplay_table.write.partitionBy("year", "month")\
+                  .parquet("s3a://christophndde4/songplay_table/")
 
 
 def main():
