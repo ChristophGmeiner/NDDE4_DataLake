@@ -44,7 +44,6 @@ def process_song_data(spark, input_data, output_data):
                               "duration").distinct()\
                     .orderBy(F.col("song_id"))
     
-    # write songs table to parquet files partitioned by year and artist
     songs_table.write.partitionBy("year", "artist")\
                .parquet(output_data + "song_table.parquet/")
 
@@ -99,7 +98,6 @@ def process_log_data(spark, input_data, output_data):
     time_table.write.partitionBy("year", "month")\
               .parquet("s3a://christophndde4/time_table/")
 
-    #ggf parquet lesen
     song_df = spark.read.parquet(output_data + "song_table/")
     
     songplay_df = sdf.join(songstage_df, 
@@ -117,9 +115,9 @@ def process_log_data(spark, input_data, output_data):
                              sdf["userAgent"].alias("user_agent"))\
                      .filter(songstage_df["song_id"].isNotNull())
 
-    # write songplays table to parquet files partitioned by year and month
+    
     songplay_table.write.partitionBy(F.year("start_time"), 
-                                     F.month("start_time")\
+                                     F.month("start_time"))\
                          .parquet("s3a://christophndde4/songplay_table/")
 
 
