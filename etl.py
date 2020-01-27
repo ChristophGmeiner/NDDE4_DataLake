@@ -45,7 +45,8 @@ def process_song_data(spark, input_data, output_data):
                     .orderBy(F.col("song_id"))
     
     # write songs table to parquet files partitioned by year and artist
-    songs_table.write.parquet(output_data + "song_table.parquet/")
+    songs_table.write.partitionBy("year", "artist")\
+               .parquet(output_data + "song_table.parquet/")
 
     artist_table = df.select("artist_id", 
                                F.col("artist_name").alias("name"),
@@ -98,8 +99,8 @@ def process_log_data(spark, input_data, output_data):
     time_table.write.partitionBy("year", "month")\
               .parquet("s3a://christophndde4/time_table/")
 
-    song_df = spark.read.format("json")\
-                   .load("s3a://udacity-dend/song_data/*/*/*/*.json")
+    #ggf parquet lesen
+    song_df = spark.read.parquet(output_data + "song_table/")
     
     songplay_df = sdf.join(songstage_df, 
                            (songstage_df.artist_name == sdf.artist) &
