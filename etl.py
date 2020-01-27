@@ -38,7 +38,8 @@ def process_song_data(spark, input_data, output_data):
                     won't recognize the S3 path
     '''
 
-    df = spark.read.json(input_data + "*/*/*/*.json")
+    df = spark.read.format("json")\
+              .load(input_data + "song_data/*/*/*/*.json")
 
     songs_table = df.select("song_id", "title", "artist_id", "year", 
                               "duration").distinct()\
@@ -69,7 +70,8 @@ def process_log_data(spark, input_data, output_data):
                     won't recognize the S3 path
     '''
 
-    df = spark.read.json(input_data + "*/*/*.json")
+    df = spark.read.format("json")\
+              .load(input_data + "log_data/*/*/*.json")
     
     df = df.filter(F.col("page")=="NextSong")
 
